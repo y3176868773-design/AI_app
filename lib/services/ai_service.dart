@@ -181,7 +181,17 @@ class NetworkStatus {
 }
 
 class AIService {
-  static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
+  static String get _apiKey {
+    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+    if (apiKey.isEmpty) {
+      DiagnosticService().log(
+        'API Key 为空，请检查 .env 文件中的 GEMINI_API_KEY 设置',
+        level: LogLevel.error,
+      );
+    }
+    return apiKey;
+  }
+
   static const _chatBaseUrl =
       'https://open.bigmodel.cn/api/paas/v4/chat/completions';
   static const _embeddingBaseUrl =
@@ -475,6 +485,10 @@ class AIService {
                   final delta = data['choices'][0]['delta'] ?? {};
                   final content = delta['content'] ?? "";
                   if (content.isNotEmpty) {
+                    _diagnosticService.log(
+                      '收到AI响应内容: $content',
+                      level: LogLevel.debug,
+                    );
                     yield content;
                   }
                 }
@@ -603,6 +617,16 @@ class AIService {
         '发送AI请求开始',
         level: LogLevel.info,
         error: '查询: $query, 上下文文档数: ${contextDocs.length}',
+      );
+
+      // 添加 API Key 长度检查（不记录完整 API Key）
+      if (_apiKey.isEmpty) {
+        yield "\n\n请求失败: API Key 为空，请检查配置";
+        return;
+      }
+      _diagnosticService.log(
+        'API Key 长度: ${_apiKey.length}',
+        level: LogLevel.debug,
       );
 
       final response = await _postWithRetry<ResponseBody>(
